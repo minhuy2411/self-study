@@ -1,0 +1,7 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/AiRiser.Api/AiRiser.Api.csproj" />
+    <Project Path="src/AiRiser.Core/AiRiser.Core.csproj" />
+    <Project Path="src/AiRiser.Infrastructure/AiRiser.Infrastructure.csproj" />
+  </Folder>
+</Solution>

@@ -1,0 +1,6 @@
+@AiRiser.Api_HostAddress = http://localhost:5078
+
+GET {{AiRiser.Api_HostAddress}}/weatherforecast/
+Accept: application/json
+
+###
