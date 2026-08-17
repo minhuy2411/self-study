@@ -34,11 +34,13 @@ import { motion, AnimatePresence } from "framer-motion";
 import { sounds } from "@/lib/soundEffects";
 
 interface MemoryDashboardProps {
+  isActive?: boolean;
   onStartQuizWithWords?: (wordIds: string[]) => void;
   onBackToHub: () => void;
 }
 
 export default function MemoryDashboard({
+  isActive = true,
   onStartQuizWithWords,
   onBackToHub,
 }: MemoryDashboardProps) {
@@ -60,8 +62,10 @@ export default function MemoryDashboard({
   const [reviewResult, setReviewResult] = useState<SrsReviewResult | null>(null);
 
   useEffect(() => {
-    loadDashboardData();
-  }, []);
+    if (isActive) {
+      loadDashboardData();
+    }
+  }, [isActive]);
 
   // Keyboard Shortcuts for Flashcard Player
   useEffect(() => {
@@ -104,6 +108,8 @@ export default function MemoryDashboard({
     try {
       const res = await fetchApi<MemoryDashboardData>("/memory/dashboard");
       setData(res);
+      setActiveDueWordIndex(0);
+      setIsFlipped(false);
     } catch (err: any) {
       setError(err.message || "Không thể tải dữ liệu tiến độ trí nhớ");
     } finally {
@@ -222,6 +228,20 @@ export default function MemoryDashboard({
         </div>
 
         <div className="flex items-center gap-3">
+          <button
+            type="button"
+            onClick={() => {
+              sounds.playClickSound();
+              loadDashboardData();
+            }}
+            disabled={loading}
+            className="flex items-center gap-1.5 px-4 py-3 rounded-2xl bg-white dark:bg-[#131B2E] hover:bg-slate-100 text-slate-900 dark:text-white text-xs font-black border-2 border-slate-900 shadow-[3px_3px_0px_#0f172a] neo-btn-hover cursor-pointer disabled:opacity-50"
+            title="Làm mới tiến độ trí nhớ"
+          >
+            <RotateCw className={`w-3.5 h-3.5 ${loading ? "animate-spin" : ""}`} />
+            <span className="hidden sm:inline">Làm mới</span>
+          </button>
+
           <button
             type="button"
             onClick={handleFetchAiSuggestions}
@@ -435,14 +455,35 @@ export default function MemoryDashboard({
             </div>
           </div>
 
-          {data.dueWords.length === 0 ? (
+          {data.totalWords === 0 ? (
+            <div className="bg-white dark:bg-[#131B2E] border-2 border-slate-900 dark:border-slate-700 rounded-3xl p-8 text-center shadow-[5px_5px_0px_#0f172a]">
+              <div className="w-14 h-14 bg-[#DDD6FE] text-purple-950 border-2 border-slate-900 rounded-2xl flex items-center justify-center mx-auto mb-3 shadow-[2px_2px_0px_#0f172a]">
+                <BookOpen className="w-7 h-7" />
+              </div>
+              <h4 className="text-xl font-black text-slate-900 dark:text-white">
+                Chưa có từ vựng nào trong kho
+              </h4>
+              <p className="text-xs text-slate-600 dark:text-slate-400 font-bold mt-1 max-w-md mx-auto">
+                Hãy thêm từ vựng mới hoặc quét tài liệu PDF để bắt đầu theo dõi tiến độ trí nhớ theo đường cong quên Ebbinghaus!
+              </p>
+              <div className="mt-6 flex justify-center gap-3">
+                <button
+                  type="button"
+                  onClick={onBackToHub}
+                  className="px-6 py-3 rounded-2xl bg-[#22C55E] hover:bg-[#16A34A] text-slate-900 text-xs font-black border-2 border-slate-900 shadow-[3px_3px_0px_#0f172a] neo-btn-hover transition-all cursor-pointer"
+                >
+                  <BookOpen className="w-4 h-4 inline mr-1 stroke-[2.5]" /> Thêm từ mới ngay
+                </button>
+              </div>
+            </div>
+          ) : data.dueWords.length === 0 ? (
             <div className="bg-white dark:bg-[#131B2E] border-2 border-slate-900 dark:border-slate-700 rounded-3xl p-8 text-center shadow-[5px_5px_0px_#0f172a]">
               <CheckCircle2 className="w-12 h-12 text-[#22C55E] mx-auto mb-3 stroke-[2.5]" />
               <h4 className="text-xl font-black text-slate-900 dark:text-white">
                 Đã hoàn thành ôn tập hôm nay! 🎉
               </h4>
               <p className="text-xs text-slate-600 dark:text-slate-400 font-bold mt-1 max-w-md mx-auto">
-                Không còn từ nào đến hạn theo đường cong quên. Bạn có thể luyện bài Quiz nâng cao hoặc thêm từ mới.
+                Tất cả {data.totalWords} từ vựng trong kho hiện chưa đến hạn ôn tập theo đường cong quên. Bạn có thể luyện bài Quiz nâng cao hoặc thêm từ mới.
               </p>
               <div className="mt-6 flex justify-center gap-3">
                 <button

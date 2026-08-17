@@ -115,7 +115,7 @@ namespace AiRiser.Infrastructure.Services
                 });
             }
 
-            var overallRetention = totalWords > 0 ? Math.Round((totalRetention / totalWords) * 100, 1) : 100.0;
+            var overallRetention = totalWords > 0 ? Math.Round((totalRetention / totalWords) * 100, 1) : 0.0;
             var streak = await _srsEngine.CalculateUserStreakAsync(userId);
 
             // Recent 7 days activity

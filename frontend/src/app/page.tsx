@@ -657,6 +657,7 @@ export default function Home() {
         {/* Tab 3: MEMORY AI & SPACED REPETITION DASHBOARD (Phase 3) - Kept mounted */}
         <div className={activeTab === "memory" ? "block" : "hidden"}>
           <MemoryDashboard
+            isActive={activeTab === "memory"}
             onStartQuizWithWords={handleStartMistakeQuiz}
             onBackToHub={() => {
               sounds.playClickSound();
