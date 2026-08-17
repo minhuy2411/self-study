@@ -79,50 +79,28 @@ using (var scope = app.Services.CreateScope())
     var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
     try
     {
-        var conn = db.Database.GetDbConnection();
-        if (conn.State != System.Data.ConnectionState.Open)
+        if (db.Database.IsRelational())
         {
-            conn.Open();
+            db.Database.Migrate();
+            Console.WriteLine("Database migrations applied successfully to PostgreSQL.");
         }
-        using var cmd = conn.CreateCommand();
-        cmd.CommandText = @"
-        ALTER TABLE ""Vocabularies"" ADD COLUMN IF NOT EXISTS ""EnglishMeaning"" text NULL;
-        ALTER TABLE ""Vocabularies"" ADD COLUMN IF NOT EXISTS ""CefrLevel"" text NULL;
-
-        CREATE TABLE IF NOT EXISTS ""WordVectors"" (
-            ""Id"" uuid PRIMARY KEY,
-            ""WordId"" uuid NOT NULL REFERENCES ""Vocabularies""(""Id"") ON DELETE CASCADE,
-            ""UserId"" uuid NOT NULL REFERENCES ""Users""(""Id"") ON DELETE CASCADE,
-            ""EmbeddingJson"" text NOT NULL DEFAULT '[]',
-            ""ContextPayload"" text NOT NULL DEFAULT '{}',
-            ""Dimensions"" integer NOT NULL DEFAULT 1536,
-            ""CreatedAt"" timestamp with time zone NOT NULL DEFAULT CURRENT_TIMESTAMP,
-            ""UpdatedAt"" timestamp with time zone NULL
-        );
-        CREATE INDEX IF NOT EXISTS ""IX_WordVectors_UserId"" ON ""WordVectors""(""UserId"");
-        CREATE INDEX IF NOT EXISTS ""IX_WordVectors_WordId"" ON ""WordVectors""(""WordId"");
-
-        CREATE TABLE IF NOT EXISTS ""WordReviewLogs"" (
-            ""Id"" uuid PRIMARY KEY,
-            ""WordId"" uuid NOT NULL REFERENCES ""Vocabularies""(""Id"") ON DELETE CASCADE,
-            ""UserId"" uuid NOT NULL REFERENCES ""Users""(""Id"") ON DELETE CASCADE,
-            ""QualityRating"" integer NOT NULL DEFAULT 0,
-            ""Score"" integer NOT NULL DEFAULT 0,
-            ""WasCorrect"" boolean NOT NULL DEFAULT true,
-            ""IntervalDays"" integer NOT NULL DEFAULT 0,
-            ""EaseFactor"" double precision NOT NULL DEFAULT 2.5,
-            ""ReviewSource"" text NULL,
-            ""ReviewedAt"" timestamp with time zone NOT NULL DEFAULT CURRENT_TIMESTAMP
-        );
-        CREATE INDEX IF NOT EXISTS ""IX_WordReviewLogs_UserId_ReviewedAt"" ON ""WordReviewLogs""(""UserId"", ""ReviewedAt"");
-        CREATE INDEX IF NOT EXISTS ""IX_WordReviewLogs_WordId"" ON ""WordReviewLogs""(""WordId"");
-        ";
-        cmd.ExecuteNonQuery();
-        Console.WriteLine("WordVectors and WordReviewLogs tables verified/created successfully in PostgreSQL.");
+        else
+        {
+            db.Database.EnsureCreated();
+        }
     }
     catch (Exception ex)
     {
-        Console.WriteLine($"Database ensure created error: {ex.Message}");
+        Console.WriteLine($"Database migration error: {ex.Message}");
+        try
+        {
+            db.Database.EnsureCreated();
+            Console.WriteLine("Database EnsureCreated applied as fallback.");
+        }
+        catch (Exception ex2)
+        {
+            Console.WriteLine($"Database EnsureCreated fallback error: {ex2.Message}");
+        }
     }
 }
 
