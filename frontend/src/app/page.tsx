@@ -26,6 +26,7 @@ import QuizArena from "@/components/QuizArena";
 import MemoryDashboard from "@/components/MemoryDashboard";
 import ThemeToggle from "@/components/ThemeToggle";
 import DocumentScannerModal from "@/components/DocumentScannerModal";
+import VocabularyDetailModal from "@/components/VocabularyDetailModal";
 import { sounds } from "@/lib/soundEffects";
 
 export default function Home() {
@@ -49,6 +50,7 @@ export default function Home() {
 
   // Vocab State
   const [vocabularies, setVocabularies] = useState<Vocabulary[]>([]);
+  const [selectedVocab, setSelectedVocab] = useState<Vocabulary | null>(null);
   const [search, setSearch] = useState("");
   const [loading, setLoading] = useState(false);
 
@@ -567,18 +569,25 @@ export default function Home() {
                   layout
                   initial={{ opacity: 0, y: 10 }}
                   animate={{ opacity: 1, y: 0 }}
-                  className="bg-white dark:bg-[#131B2E] border-2 border-slate-900 dark:border-slate-700 rounded-3xl p-6 shadow-[5px_5px_0px_0px_#0f172a] dark:shadow-[5px_5px_0px_0px_#1e293b] neo-btn-hover flex flex-col justify-between"
+                  onClick={() => {
+                    sounds.playClickSound();
+                    setSelectedVocab(v);
+                  }}
+                  className="bg-white dark:bg-[#131B2E] border-2 border-slate-900 dark:border-slate-700 rounded-3xl p-6 shadow-[5px_5px_0px_0px_#0f172a] dark:shadow-[5px_5px_0px_0px_#1e293b] neo-btn-hover flex flex-col justify-between cursor-pointer"
                 >
                   <div>
                     <div className="flex items-start justify-between gap-2">
                       <div>
                         <div className="flex items-center gap-2">
-                          <h3 className="text-2xl font-black text-slate-900 dark:text-white tracking-tight">
+                          <h3 className="text-2xl font-black text-slate-900 dark:text-white tracking-tight hover:underline">
                             {v.word}
                           </h3>
                           <button
                             type="button"
-                            onClick={() => playPronunciation(v.word)}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              playPronunciation(v.word);
+                            }}
                             className="p-1.5 bg-[#FEF08A] text-slate-900 hover:bg-[#FDE047] border-2 border-slate-900 rounded-xl shadow-[2px_2px_0px_#0f172a] transition-all cursor-pointer"
                             title="Nghe phát âm"
                             aria-label="Play pronunciation"
@@ -606,7 +615,10 @@ export default function Home() {
                         )}
                         <button
                           type="button"
-                          onClick={() => handleDeleteVocab(v.id)}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleDeleteVocab(v.id);
+                          }}
                           className="p-1 bg-[#FECDD3] hover:bg-[#FDA4AF] text-rose-900 border-2 border-slate-900 rounded-xl shadow-[1px_1px_0px_#0f172a] transition-all cursor-pointer"
                           title="Xóa từ"
                           aria-label="Delete vocabulary"
@@ -834,6 +846,16 @@ export default function Home() {
           </div>
         )}
       </AnimatePresence>
+
+      {/* Modal 3: Vocabulary Detail Modal */}
+      <VocabularyDetailModal
+        vocab={selectedVocab}
+        isOpen={!!selectedVocab}
+        onClose={() => setSelectedVocab(null)}
+        onDeleteVocab={handleDeleteVocab}
+        onPracticeQuiz={handleStartMistakeQuiz}
+        speechRate={speechRate}
+      />
     </div>
   );
 }
