@@ -1,6 +1,14 @@
-const API_BASE = (
-  process.env.NEXT_PUBLIC_API_URL || "http://localhost:5078/api"
-).replace(/\/+$/, "");
+const getApiBase = () => {
+  let base = (
+    process.env.NEXT_PUBLIC_API_URL || "http://localhost:5078/api"
+  ).trim().replace(/\/+$/, "");
+  if (!base.endsWith("/api")) {
+    base += "/api";
+  }
+  return base;
+};
+
+const API_BASE = getApiBase();
 
 export interface Vocabulary {
   id: string;
