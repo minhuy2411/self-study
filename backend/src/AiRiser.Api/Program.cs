@@ -15,8 +15,10 @@ var builder = WebApplication.CreateBuilder(new WebApplicationOptions
 // Add services to the container.
 builder.Services.AddControllers();
 
-// Configure EF Core with PostgreSQL (DefaultConnection) or InMemory fallback
-var connectionString = builder.Configuration.GetConnectionString("DefaultConnection");
+// Configure EF Core with PostgreSQL (DefaultConnection or DATABASE_URL) or InMemory fallback
+var rawConnStr = builder.Configuration["DATABASE_URL"] ?? builder.Configuration.GetConnectionString("DefaultConnection");
+var connectionString = NormalizePostgresConnectionString(rawConnStr);
+
 builder.Services.AddDbContext<AppDbContext>(options =>
 {
     if (!string.IsNullOrEmpty(connectionString))
@@ -130,3 +132,41 @@ app.UseAuthorization();
 app.MapControllers();
 
 app.Run();
+
+static string NormalizePostgresConnectionString(string? connStr)
+{
+    if (string.IsNullOrWhiteSpace(connStr)) return string.Empty;
+    
+    connStr = connStr.Trim();
+    if (connStr.StartsWith("postgres://", StringComparison.OrdinalIgnoreCase) ||
+        connStr.StartsWith("postgresql://", StringComparison.OrdinalIgnoreCase))
+    {
+        try
+        {
+            var uri = new Uri(connStr);
+            var userInfo = uri.UserInfo.Split(':');
+            var user = userInfo.Length > 0 ? Uri.UnescapeDataString(userInfo[0]) : "";
+            var pass = userInfo.Length > 1 ? Uri.UnescapeDataString(userInfo[1]) : "";
+            var host = uri.Host;
+            var port = uri.Port > 0 ? uri.Port : 5432;
+            var database = uri.AbsolutePath.TrimStart('/');
+
+            var builder = new Npgsql.NpgsqlConnectionStringBuilder
+            {
+                Host = host,
+                Port = port,
+                Database = database,
+                Username = user,
+                Password = pass,
+                SslMode = Npgsql.SslMode.Require,
+                TrustServerCertificate = true
+            };
+            return builder.ConnectionString;
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error parsing postgres URI: {ex.Message}");
+        }
+    }
+    return connStr;
+}
