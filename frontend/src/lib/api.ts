@@ -49,6 +49,7 @@ export interface QuizQuestion {
   targetWord: string;
   targetPhonetic?: string;
   targetMeaning: string;
+  englishMeaning?: string;
   type: QuizType;
   questionPrompt: string;
   sentenceContext?: string;

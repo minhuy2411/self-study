@@ -132,7 +132,7 @@ namespace AiRiser.Infrastructure.Services
             Dictionary<Guid, List<string>>? distractorsMap)
         {
             var systemPrompt = """
-            You are an expert English Language Professor & Quiz Designer for the AI-Riser application.
+            You are an expert English Language Professor & Quiz Designer for the AI-Riser educational platform.
             Your task is to generate interactive quiz questions in JSON format based on the retrieved vocabulary context.
 
             You must strictly return a JSON object with a single property "questions" containing an array of question objects.
@@ -142,18 +142,19 @@ namespace AiRiser.Infrastructure.Services
               "targetWord": "<word>",
               "targetPhonetic": "<phonetic>",
               "targetMeaning": "<meaning>",
+              "englishMeaning": "<concise authoritative English definition>",
               "type": 1|2|3|4|5,
-              "questionPrompt": "<Question text>",
-              "sentenceContext": "<Example/Context sentence with [___] cloze if type 3>",
-              "options": ["Option A", "Option B", "Option C", "Option D"], // required for type 1 & 2, empty for type 3, 4, 5
-              "correctAnswer": "<correct answer string>",
-              "explanationHint": "<short hint or grammar note>",
+              "questionPrompt": "<Clear question prompt in Vietnamese>",
+              "sentenceContext": "<CRITICAL RULE: For type 1 and type 2, this MUST be the English definition / explanation in English (e.g., for 'scientific': 'relating to science, or using the organized methods of science', for 'observation': 'the action or process of observing something or someone carefully in order to gain information'). For type 3, this is an authentic example sentence with the target word replaced by [___]. For type 4, an authentic English sentence to translate. For type 5, a Vietnamese sentence to translate into English>",
+              "options": ["Option A", "Option B", "Option C", "Option D"], // required for type 1 & 2 (shuffled), empty for type 3, 4, 5
+              "correctAnswer": "<exact correct answer string matching one of the options>",
+              "explanationHint": "<short grammar/usage tip in Vietnamese>",
               "ragSourceContext": "<retrieved context snippet>"
             }
 
             Quiz Types:
-            1: MultipleChoice (Word -> Vietnamese Meaning)
-            2: MultipleChoice (Meaning -> English Word)
+            1: MultipleChoice (Word -> Vietnamese Meaning) -> sentenceContext MUST be an English definition explaining the word.
+            2: MultipleChoice (Meaning -> English Word) -> sentenceContext MUST be an English definition explaining the word.
             3: Fill in the blank (A natural sentence with the target word replaced with [___])
             4: English to Vietnamese translation (Translate an English sentence containing the target word)
             5: Vietnamese to English translation (Translate a Vietnamese sentence into English using the target word)
@@ -168,6 +169,7 @@ namespace AiRiser.Infrastructure.Services
                     wordId = r.WordId.ToString(),
                     word = r.Word,
                     meaning = r.Meaning,
+                    englishMeaning = r.EnglishMeaning,
                     phonetic = r.Phonetic,
                     partOfSpeech = r.PartOfSpeech,
                     example = r.Example,
@@ -237,7 +239,7 @@ namespace AiRiser.Infrastructure.Services
             Sentence Context: {request.SentenceContext ?? "N/A"}
             Expected Correct Answer: {request.CorrectAnswer}
             Student's Answer: {request.UserAnswer}
-            Word Context: {ragContext?.Word ?? ""} ({ragContext?.PartOfSpeech ?? ""}) - Meaning: {ragContext?.Meaning ?? ""}
+            Word Context: {ragContext?.Word ?? ""} ({ragContext?.PartOfSpeech ?? ""}) - Meaning: {ragContext?.Meaning ?? ""} - English: {ragContext?.EnglishMeaning ?? ""}
             
             Evaluate the student's submission fairly, accounting for acceptable synonyms, minor typos, and natural phrasing.
             """;
@@ -301,6 +303,7 @@ namespace AiRiser.Infrastructure.Services
                             TargetWord = elem.TryGetProperty("targetWord", out var tw) ? tw.GetString() ?? "" : "",
                             TargetPhonetic = elem.TryGetProperty("targetPhonetic", out var tp) ? tp.GetString() ?? "" : "",
                             TargetMeaning = elem.TryGetProperty("targetMeaning", out var tm) ? tm.GetString() ?? "" : "",
+                            EnglishMeaning = elem.TryGetProperty("englishMeaning", out var em) ? em.GetString() : null,
                             Type = elem.TryGetProperty("type", out var ty) && ty.TryGetInt32(out var tInt) ? (QuizType)tInt : QuizType.MultipleChoiceWordToMeaning,
                             QuestionPrompt = elem.TryGetProperty("questionPrompt", out var qp) ? qp.GetString() ?? "" : "",
                             SentenceContext = elem.TryGetProperty("sentenceContext", out var sc) ? sc.GetString() : null,
@@ -308,6 +311,11 @@ namespace AiRiser.Infrastructure.Services
                             ExplanationHint = elem.TryGetProperty("explanationHint", out var eh) ? eh.GetString() : null,
                             RagSourceContext = elem.TryGetProperty("ragSourceContext", out var rc) ? rc.GetString() : null
                         };
+
+                        if (string.IsNullOrEmpty(q.SentenceContext) && !string.IsNullOrEmpty(q.EnglishMeaning))
+                        {
+                            q.SentenceContext = q.EnglishMeaning;
+                        }
 
                         if (elem.TryGetProperty("options", out var opts) && opts.ValueKind == JsonValueKind.Array)
                         {
@@ -349,7 +357,7 @@ namespace AiRiser.Infrastructure.Services
                 }
                 else
                 {
-                    // Rotate among the 4 main formats
+                    // Rotate among the 5 main formats
                     var formats = new[]
                     {
                         QuizType.MultipleChoiceWordToMeaning,
@@ -368,6 +376,7 @@ namespace AiRiser.Infrastructure.Services
                     TargetWord = r.Word,
                     TargetPhonetic = r.Phonetic ?? "",
                     TargetMeaning = r.Meaning,
+                    EnglishMeaning = r.EnglishMeaning,
                     Type = typeToUse,
                     RagSourceContext = r.FormattedPromptContext
                 };
@@ -377,7 +386,10 @@ namespace AiRiser.Infrastructure.Services
                     case QuizType.MultipleChoiceWordToMeaning:
                         q.QuestionPrompt = $"Nghĩa của từ \"{r.Word}\" là gì?";
                         q.CorrectAnswer = r.Meaning;
-                        q.SentenceContext = r.RelatedSentences.FirstOrDefault() ?? r.Example;
+                        // Use English definition as the primary hint for MultipleChoice
+                        q.SentenceContext = !string.IsNullOrWhiteSpace(r.EnglishMeaning)
+                            ? r.EnglishMeaning
+                            : (r.Example ?? $"Definition: relating to or characteristic of {r.Word.ToLower()}");
                         q.ExplanationHint = $"Từ loại: {r.PartOfSpeech ?? "từ vựng"} | Phiên âm: {r.Phonetic ?? ""}";
                         
                         // Populate options with correct answer + distractors
@@ -398,7 +410,10 @@ namespace AiRiser.Infrastructure.Services
                     case QuizType.MultipleChoiceMeaningToWord:
                         q.QuestionPrompt = $"Từ tiếng Anh nào mang nghĩa: \"{r.Meaning}\"?";
                         q.CorrectAnswer = r.Word;
-                        q.SentenceContext = r.RelatedSentences.FirstOrDefault() ?? r.Example;
+                        // Use English definition as hint
+                        q.SentenceContext = !string.IsNullOrWhiteSpace(r.EnglishMeaning)
+                            ? r.EnglishMeaning
+                            : (r.Example ?? $"Definition: relating to or characteristic of {r.Word.ToLower()}");
                         q.ExplanationHint = $"Gợi ý: Phiên âm {r.Phonetic ?? ""}";
 
                         var opts2 = new List<string> { r.Word };
@@ -441,7 +456,7 @@ namespace AiRiser.Infrastructure.Services
 
                     case QuizType.VietnameseToEnglish:
                         q.QuestionPrompt = $"Viết câu tiếng Anh hoặc cụm từ sử dụng từ \"{r.Word}\" để diễn đạt nghĩa: \"{r.Meaning}\"";
-                        q.SentenceContext = $"Gợi ý ngữ cảnh: {r.Example ?? r.Meaning}";
+                        q.SentenceContext = $"Gợi ý ngữ cảnh: {r.Example ?? r.EnglishMeaning ?? r.Meaning}";
                         q.CorrectAnswer = r.Word;
                         q.ExplanationHint = $"Từ cần sử dụng: {r.Word} ({r.Phonetic ?? ""})";
                         break;

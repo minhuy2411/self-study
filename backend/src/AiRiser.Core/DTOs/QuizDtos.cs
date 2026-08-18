@@ -20,6 +20,7 @@ namespace AiRiser.Core.DTOs
         public string TargetWord { get; set; } = string.Empty;
         public string TargetPhonetic { get; set; } = string.Empty;
         public string TargetMeaning { get; set; } = string.Empty;
+        public string? EnglishMeaning { get; set; }
         public QuizType Type { get; set; }
         public string QuestionPrompt { get; set; } = string.Empty;
         public string? SentenceContext { get; set; }
@@ -73,6 +74,7 @@ namespace AiRiser.Core.DTOs
         public Guid WordId { get; set; }
         public string Word { get; set; } = string.Empty;
         public string Meaning { get; set; } = string.Empty;
+        public string? EnglishMeaning { get; set; }
         public string? Phonetic { get; set; }
         public string? PartOfSpeech { get; set; }
         public string? Example { get; set; }

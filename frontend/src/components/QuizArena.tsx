@@ -536,10 +536,21 @@ export default function QuizArena({ initialWordIds, onBackToHub }: QuizArenaProp
               {currentQuestion.questionPrompt}
             </p>
 
-            {/* Contextual Example Sentence (if any) */}
+            {/* Contextual Example Sentence / English Definition Hint */}
             {currentQuestion.sentenceContext && (
-              <div className="bg-[#FDFBF7] dark:bg-slate-950 border-2 border-slate-900 dark:border-slate-800 rounded-2xl p-4 mb-6 text-sm font-bold text-slate-800 dark:text-slate-200 italic shadow-[2px_2px_0px_#0f172a]">
-                "{currentQuestion.sentenceContext}"
+              <div className="bg-[#FDFBF7] dark:bg-slate-950 border-2 border-slate-900 dark:border-slate-800 rounded-2xl p-4 mb-6 shadow-[2px_2px_0px_#0f172a]">
+                <div className="flex items-center gap-1.5 text-xs font-black uppercase tracking-wider text-amber-800 dark:text-amber-400 mb-1.5">
+                  <Sparkles className="w-3.5 h-3.5 text-amber-500 shrink-0" />
+                  {currentQuestion.type === QuizType.MultipleChoiceWordToMeaning ||
+                  currentQuestion.type === QuizType.MultipleChoiceMeaningToWord
+                    ? "Gợi ý định nghĩa (English Definition):"
+                    : currentQuestion.type === QuizType.FillInTheBlank
+                    ? "Điền từ vào chỗ trống:"
+                    : "Câu bài tập:"}
+                </div>
+                <p className="text-sm font-bold text-slate-800 dark:text-slate-200 italic leading-relaxed">
+                  "{currentQuestion.sentenceContext}"
+                </p>
               </div>
             )}
 

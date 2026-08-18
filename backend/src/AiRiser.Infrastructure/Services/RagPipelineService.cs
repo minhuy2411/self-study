@@ -44,10 +44,17 @@ namespace AiRiser.Infrastructure.Services
                 WordId = vocab.Id,
                 Word = vocab.Word,
                 Meaning = vocab.Meaning,
+                EnglishMeaning = vocab.EnglishMeaning,
                 Phonetic = vocab.Phonetic,
                 PartOfSpeech = vocab.PartOfSpeech,
                 Example = vocab.Example
             };
+
+            // If user's vocabulary already has an example sentence, put it first
+            if (!string.IsNullOrWhiteSpace(vocab.Example))
+            {
+                ragContext.RelatedSentences.Add(vocab.Example);
+            }
 
             // 1. Fetch External Dictionary data
             try
@@ -66,6 +73,11 @@ namespace AiRiser.Infrastructure.Services
                         {
                             foreach (var m in entry.Meanings)
                             {
+                                if (string.IsNullOrEmpty(ragContext.PartOfSpeech) && !string.IsNullOrEmpty(m.PartOfSpeech))
+                                {
+                                    ragContext.PartOfSpeech = m.PartOfSpeech;
+                                }
+
                                 if (m.Synonyms != null)
                                 {
                                     foreach (var syn in m.Synonyms)
@@ -81,6 +93,11 @@ namespace AiRiser.Infrastructure.Services
                                 {
                                     foreach (var def in m.Definitions)
                                     {
+                                        if (string.IsNullOrEmpty(ragContext.EnglishMeaning) && !string.IsNullOrEmpty(def.Definition))
+                                        {
+                                            ragContext.EnglishMeaning = def.Definition;
+                                        }
+
                                         if (!string.IsNullOrEmpty(def.Example) && !ragContext.RelatedSentences.Contains(def.Example) && ragContext.RelatedSentences.Count < 4)
                                         {
                                             ragContext.RelatedSentences.Add(def.Example);
@@ -97,34 +114,10 @@ namespace AiRiser.Infrastructure.Services
                 _logger.LogWarning(ex, "Failed to fetch external dictionary context for word '{Word}'", vocab.Word);
             }
 
-            // 2. Query Vector DB for semantically similar words or saved context
-            try
-            {
-                var similarVocabs = await _vectorService.SearchSimilarWordsAsync(userId, vocab.Word, 3, vocab.Id);
-                foreach (var sim in similarVocabs)
-                {
-                    if (!string.IsNullOrEmpty(sim.Example) && !ragContext.RelatedSentences.Contains(sim.Example) && ragContext.RelatedSentences.Count < 5)
-                    {
-                        ragContext.RelatedSentences.Add($"[Context: {sim.Word}] {sim.Example}");
-                    }
-                }
-            }
-            catch (Exception ex)
-            {
-                _logger.LogWarning(ex, "Failed to query vector similarity context for '{Word}'", vocab.Word);
-            }
-
-            // If no sentences found, add standard contextual fallback sentences
+            // If no sentences found, add standard contextual fallback sentence for the target word
             if (ragContext.RelatedSentences.Count == 0)
             {
-                if (!string.IsNullOrEmpty(vocab.Example))
-                {
-                    ragContext.RelatedSentences.Add(vocab.Example);
-                }
-                else
-                {
-                    ragContext.RelatedSentences.Add($"She tried to use the word '{vocab.Word}' correctly in her essay.");
-                }
+                ragContext.RelatedSentences.Add($"She tried to use the word '{vocab.Word}' correctly in her conversation.");
             }
 
             ragContext.FormattedPromptContext = FormatRagPrompt(ragContext);
@@ -148,9 +141,10 @@ namespace AiRiser.Infrastructure.Services
             Target Word: {rag.Word}
             Phonetic: {rag.Phonetic ?? "N/A"}
             Part of Speech: {rag.PartOfSpeech ?? "N/A"}
-            Core Meaning (Vietnamese/English): {rag.Meaning}
+            English Definition: {rag.EnglishMeaning ?? "N/A"}
+            Vietnamese Meaning: {rag.Meaning}
             Synonyms: {synonymsText}
-            Contextual Example Sentences:
+            Example Sentences:
              - {sentencesText}
             """;
         }
